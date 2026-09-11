@@ -186,3 +186,7 @@ git tag v0.2.0 && git push origin v0.2.0
 ## Status
 
 Early version. Tested on Linux with unit tests and scripted tmux sessions against a mock server. Binaries are about 16–17 MB, mostly because of syntax highlighting.
+
+## License
+
+[MIT](LICENSE)
