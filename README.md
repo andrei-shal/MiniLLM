@@ -1,16 +1,18 @@
 # MiniLLM
 
-Минимальный консольный клиент для любых OpenAI-совместимых LLM: llama.cpp, Ollama, vLLM, LM Studio, OpenRouter, LiteLLM и всё, что умеет `/v1/chat/completions`.
+A minimal terminal chat client for any OpenAI-compatible LLM: llama.cpp, Ollama, vLLM, LM Studio, OpenRouter, LiteLLM, or anything else that speaks `/v1/chat/completions`.
 
-Один статический бинарник `mllm`, без рантайма и зависимостей. Написан на Go поверх [Bubble Tea](https://github.com/charmbracelet/bubbletea) и [Glamour](https://github.com/charmbracelet/glamour).
+It is a single static `mllm` binary with no runtime or dependencies, written in Go on top of [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Glamour](https://github.com/charmbracelet/glamour).
+
+> The interface is currently in Russian.
 
 ```
 ◆ MiniLLM
   /help — команды · ⇧⇥ — chat/agent · esc — стоп
 
-❯ как развернуть список в Go?
+❯ how do I reverse a slice in Go?
 
-  Начиная с Go 1.21 проще всего через slices.Reverse:
+  Since Go 1.21 the simplest way is slices.Reverse:
 
     s := []int{1, 2, 3}
     slices.Reverse(s) // [3 2 1]
@@ -21,28 +23,41 @@
  ● local/qwen3-32b  chat  ctx 1.2k      / команды · ⇧⇥ режим
 ```
 
-## Возможности
+## Features
 
-- **Inline-интерфейс, как у Claude Code.** Ответы идут в обычную ленту терминала, поэтому скролл, выделение и копирование работают как всегда. Внизу поле ввода и строка статуса: модель, режим, занятый контекст.
-- **Стриминг с markdown.** Заголовки, списки, таблицы, подсветка кода. Готовые блоки печатаются сразу, недописанный виден внизу.
-- **Рассуждения моделей** (`reasoning_content`, `reasoning` или `<think>…</think>`) свёрнуты в строку `✻ думал 3.2s`; `/think` их показывает.
-- **Любые кастомные провайдеры** в одном конфиге. Модель переключается на лету, в том числе посреди диалога.
-- **Диалоги сохраняются.** `mllm -c` продолжает последний, `/sessions` открывает любой прошлый.
-- **One-shot и пайпы:** `mllm "вопрос"`, `cat file | mllm "объясни"`. Если stdout не терминал, ответ идёт сырым текстом.
-- **Мастер первого запуска.** Спросит адрес и ключ, покажет модели с сервера и сохранит конфиг.
-- **Заготовка под агента.** Чат и агент — один и тот же цикл, режим переключается по Shift+Tab (см. [ниже](#режим-агента)).
+- **Inline UI, like Claude Code.** Answers go into the terminal's normal scrollback, so scrolling, selecting and copying work as usual. Only the input box and a status line (model, mode, context used) stay at the bottom.
+- **Streaming markdown.** Headings, lists, tables and syntax-highlighted code. Finished blocks are printed right away; the block being written is shown live.
+- **Model reasoning** (`reasoning_content`, `reasoning`, or `<think>…</think>`) is folded into a single `✻ думал 3.2s` ("thought for 3.2s") line; `/think` expands it.
+- **Any number of custom providers** in one config. Switch models on the fly, even mid-conversation.
+- **Saved conversations.** `mllm -c` continues the last one; `/sessions` opens any earlier one.
+- **One-shot and pipes:** `mllm "question"` or `cat file | mllm "explain"`. When stdout isn't a terminal, the answer is printed as plain text.
+- **First-run setup wizard.** It asks for the endpoint and key, lists the server's models, and writes the config.
+- **Ready for an agent mode.** Chat and agent are the same loop, and Shift+Tab switches between them (see [below](#agent-mode)).
 
-## Установка
+## Install
 
-Нужен Go 1.27+.
+### Prebuilt binary
+
+Download the binary for your platform from [Releases](https://github.com/andrei-shal/MiniLLM/releases/latest): `mllm-linux-amd64`, `mllm-linux-arm64`, `mllm-darwin-amd64`, `mllm-darwin-arm64`, or `mllm-windows-amd64.exe`. For example, on Linux:
+
+```sh
+curl -L -o ~/.local/bin/mllm https://github.com/andrei-shal/MiniLLM/releases/latest/download/mllm-linux-amd64
+chmod +x ~/.local/bin/mllm
+```
+
+The macOS binaries are not signed. If Gatekeeper blocks one, remove the quarantine flag with `xattr -d com.apple.quarantine mllm`. SHA-256 checksums are in `checksums.txt` next to the binaries.
+
+### From source
+
+Requires Go 1.27+.
 
 ```sh
 git clone https://github.com/andrei-shal/MiniLLM.git
 cd MiniLLM
-make install      # соберёт и положит в ~/.local/bin/mllm
+make install      # builds and installs to ~/.local/bin/mllm
 ```
 
-Другие цели:
+Other targets:
 
 ```sh
 make build        # ./mllm
@@ -50,118 +65,126 @@ make dist         # linux/darwin/windows × amd64/arm64 → dist/
 make test         # go vet + go test
 ```
 
-## Быстрый старт
+## Quick start
 
 ```sh
 mllm
 ```
 
-При первом запуске мастер спросит base URL (например `http://localhost:8080/v1`) и API-ключ, запросит `GET /models` и предложит выбрать модель. Конфиг сохранится в `~/.config/minillm/config.toml`. Ещё одного провайдера можно добавить через `mllm -setup`.
+On first run the wizard asks for a base URL (e.g. `http://localhost:8080/v1`) and an API key, fetches `GET /models`, and lets you pick a model. The config is saved to `~/.config/minillm/config.toml`. Add more providers later with `mllm -setup`.
 
-## Использование
+## Usage
 
 ```sh
-mllm                          # интерактивный чат
-mllm "как дела?"              # один ответ и выход
-cat main.go | mllm "что тут?" # stdin добавляется к вопросу
-mllm -c                       # продолжить последний диалог
-mllm -m local/qwen3 "привет"  # выбрать модель
-mllm -s "Отвечай кратко" …    # системный промпт
-mllm -raw "…" > answer.md     # без оформления
+mllm                            # interactive chat
+mllm "how are you?"             # one answer, then exit
+cat main.go | mllm "what's this?"   # stdin is appended to the question
+mllm -c                         # continue the last conversation
+mllm -m local/qwen3 "hi"        # pick a model
+mllm -s "Be brief" "…"          # system prompt
+mllm -raw "…" > answer.md       # no formatting
 ```
 
-Флаги пишутся **до** текста вопроса. Полный список — `mllm -h`.
+Flags go **before** the question. See `mllm -h` for the full list.
 
-### Клавиши
+### Keys
 
-| Клавиши | Действие |
+| Keys | Action |
 |---|---|
-| `Enter` | отправить |
-| `Alt+Enter`, `Shift+Enter`, `Ctrl+J`, `\` + `Enter` | новая строка |
-| `Esc`, `Ctrl+C` | остановить ответ |
-| `↑` `↓` | история ввода |
-| `Tab` | дополнить команду |
-| `Shift+Tab` | переключить chat ↔ agent |
-| `Ctrl+L` | очистить экран |
-| `Ctrl+C` дважды, `Ctrl+D` | выход |
+| `Enter` | send |
+| `Alt+Enter`, `Shift+Enter`, `Ctrl+J`, `\` + `Enter` | new line |
+| `Esc`, `Ctrl+C` | stop the answer |
+| `↑` `↓` | input history |
+| `Tab` | complete a command |
+| `Shift+Tab` | switch chat ↔ agent |
+| `Ctrl+L` | clear the screen |
+| `Ctrl+C` twice, `Ctrl+D` | quit |
 
-Пока модель отвечает, можно набирать следующее сообщение: оно уйдёт, как только ответ закончится.
+You can type your next message while the model is still answering; it is sent as soon as the answer is done.
 
-### Команды
+### Commands
 
-| Команда | Действие |
+| Command | Action |
 |---|---|
-| `/model [имя]` | выбрать модель: пикер с поиском или сразу по имени |
-| `/provider` | выбрать провайдера, затем его модель |
-| `/new` | новый диалог |
-| `/sessions` | открыть прошлый диалог |
-| `/retry` | перегенерировать последний ответ |
-| `/system [текст \| -]` | показать, задать или сбросить системный промпт |
-| `/copy` | скопировать последний ответ (OSC 52, работает и по ssh) |
-| `/think` | показывать или скрывать рассуждения |
-| `/agent` | переключить chat ↔ agent |
-| `/help` | справка |
-| `/exit` | выход |
+| `/model [name]` | pick a model (fuzzy picker) or switch to one by name |
+| `/provider` | pick a provider, then one of its models |
+| `/new` | start a new conversation |
+| `/sessions` | open an earlier conversation |
+| `/retry` | regenerate the last answer |
+| `/system [text \| -]` | show, set or reset the system prompt |
+| `/copy` | copy the last answer (OSC 52, works over ssh) |
+| `/think` | show or hide model reasoning |
+| `/agent` | switch chat ↔ agent |
+| `/help` | help |
+| `/exit` | quit |
 
-## Конфиг
+## Configuration
 
-`~/.config/minillm/config.toml`; путь можно переопределить через `MINILLM_CONFIG`.
+The config lives at `~/.config/minillm/config.toml`; override the path with `MINILLM_CONFIG`.
 
 ```toml
-default = "local/qwen3-32b"    # провайдер/модель по умолчанию
+default = "local/qwen3-32b"    # provider/model
 # theme = "auto"               # auto | dark | light
 
 [[provider]]
 name = "local"
 base_url = "http://localhost:8080/v1"
-# models = ["qwen3-32b"]       # если сервер не отдаёт /models
+# models = ["qwen3-32b"]       # if the server doesn't serve /models
 
 [[provider]]
 name = "openrouter"
 base_url = "https://openrouter.ai/api/v1"
-api_key_env = "OPENROUTER_API_KEY"   # или api_key = "sk-…"
+api_key_env = "OPENROUTER_API_KEY"   # or api_key = "sk-…"
 headers = { "X-Title" = "minillm" }
 
 [chat]
-system = "Ты полезный ассистент."
+system = "You are a helpful assistant."
 # temperature = 0.7
 # max_tokens = 4096
 ```
 
-Модель указывается как `провайдер/модель`. Можно написать и просто имя модели: оно найдётся у провайдера, у которого эта модель есть, а иначе подставится провайдер по умолчанию.
+Models are written as `provider/model`. A bare model name also works: it resolves to the provider that lists that model, or to the default provider otherwise.
 
-Диалоги лежат в `~/.local/share/minillm/sessions/`, история ввода — в `~/.local/share/minillm/history`.
+Conversations are stored in `~/.local/share/minillm/sessions/`, and input history in `~/.local/share/minillm/history`.
 
-## Режим агента
+## Agent mode
 
-Режим — это системный промпт плюс набор инструментов. У чата инструментов нет, поэтому цикл «модель ↔ инструменты» заканчивается после первого ответа. Агент — тот же цикл с инструментами, и история у них общая: можно начать разговор в чате и переключиться посреди диалога.
+A mode is just a system prompt plus a set of tools. Chat has no tools, so the model ↔ tools loop ends after the first answer. The agent is the same loop with tools, and both share the conversation, so you can start chatting and switch to the agent midway.
 
-Сейчас готова архитектура: интерфейс инструмента, цикл с вызовами, показ вызовов в UI и подтверждение `[y] да [a] всегда [n] нет`. Самих инструментов пока нет. Чтобы добавить инструмент, реализуй интерфейс и верни его из `agentTools()` в `internal/agent/modes.go`:
+The plumbing is in place: the tool interface, the call loop, tool calls shown in the UI, and a `[y] yes [a] always [n] no` approval prompt. There are no tools yet. To add one, implement the interface and return it from `agentTools()` in `internal/agent/modes.go`:
 
 ```go
 type Tool interface {
 	Name() string
-	Schema() llm.ToolDef                       // JSON Schema аргументов
-	NeedsApproval(args json.RawMessage) bool   // спросить пользователя?
+	Schema() llm.ToolDef                     // JSON Schema of the arguments
+	NeedsApproval(args json.RawMessage) bool // ask the user first?
 	Run(ctx context.Context, args json.RawMessage) (string, error)
 }
 ```
 
-## Как устроено
+## How it works
 
 ```
-main.go               флаги; интерактив, one-shot или pipe
-internal/llm          тонкий SSE-клиент /chat/completions и /models
-internal/agent        цикл «модель ↔ инструменты», события для UI
-internal/config       конфиг, добавление провайдера
-internal/session      диалоги в JSON
-internal/ui           Bubble Tea: ввод, стриминг, пикеры, команды, мастер
+main.go               flags; interactive, one-shot or pipe
+internal/llm          thin SSE client for /chat/completions and /models
+internal/agent        model ↔ tools loop, events for the UI
+internal/config       config file, adding providers
+internal/session      conversations as JSON
+internal/ui           Bubble Tea UI: input, streaming, pickers, commands, wizard
 ```
 
-- **Свой HTTP-клиент** вместо SDK: у кастомных провайдеров свои особенности. Клиент понимает `reasoning_content` и `reasoning`, вырезает `<think>`, склеивает дельты `tool_calls`, повторяет запрос без `stream_options`, если сервер его не принимает, и переваривает нестриминговый ответ.
-- **Нижняя область «владеет» последними строками диалога** и отдаёт их в ленту, только когда они перестают помещаться. Поэтому меню и пикеры не прокручивают терминал, и поле ввода после них остаётся на месте.
-- В `internal/ui/frame.go` описаны обходы особенностей inline-рендера Bubble Tea v2.0.9 и tmux: курсор терминала «припаркован», печать режется на куски.
+- **A hand-written HTTP client instead of an SDK,** because custom providers each have quirks. It understands `reasoning_content` and `reasoning`, strips `<think>`, assembles streamed `tool_calls` deltas, retries without `stream_options` when a server rejects it, and handles non-streaming responses.
+- **The bottom area owns the latest conversation lines** and only hands them to the scrollback once they no longer fit. That's why menus and pickers don't scroll the terminal, and the input stays in place when they close.
+- `internal/ui/frame.go` documents the workarounds for quirks of Bubble Tea v2.0.9's inline renderer and of tmux: the terminal cursor is kept parked, and prints are split into chunks.
 
-## Статус
+## Releases
 
-Ранняя версия. Проверено на Linux: юнит-тесты и сценарии в tmux против мок-сервера. Бинарник весит около 17 МБ, в основном из-за подсветки кода.
+Pushing a `v*` tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml). It runs the tests, builds all platforms with `make dist`, and publishes a GitHub Release with the binaries, `checksums.txt`, and generated release notes:
+
+```sh
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+## Status
+
+Early version. Tested on Linux with unit tests and scripted tmux sessions against a mock server. Binaries are about 16–17 MB, mostly because of syntax highlighting.
