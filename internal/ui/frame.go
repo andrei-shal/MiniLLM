@@ -7,17 +7,23 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// frame wraps the live UI for the inline renderer. Bubble Tea v2.0.9 leaves
-// stale rows behind when a frame shrinks, or the program exits, while the
-// terminal cursor sits low in the frame (e.g. on the last line of a tall
-// input). It is reliable with the cursor on the first row, so every frame
-// starts with a blank spacer line with the real cursor parked on it, and
+// Bubble Tea v2.0.9's inline renderer leaves stale rows behind when a frame
+// shrinks, or the program exits, while the terminal cursor sits low in the
+// frame (e.g. on the last line of a tall input). It is reliable with the
+// cursor on the first row, so the real cursor is always parked there and
 // carets are drawn instead: the textarea's virtual cursor, the picker's block.
+func parkedCursor() *tea.Cursor {
+	c := tea.NewCursor(0, 0)
+	c.Shape = tea.CursorBar
+	c.Blink = false
+	return c
+}
+
+// frame is a standalone frame (the setup wizard's picker): a blank spacer
+// line on top holds the parked cursor.
 func frame(content string) tea.View {
 	v := tea.NewView("\n" + content)
-	v.Cursor = tea.NewCursor(0, 0)
-	v.Cursor.Shape = tea.CursorBar
-	v.Cursor.Blink = false
+	v.Cursor = parkedCursor()
 	return v
 }
 

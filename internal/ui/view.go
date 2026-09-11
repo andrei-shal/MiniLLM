@@ -17,8 +17,11 @@ import (
 )
 
 func (m *Model) View() tea.View {
-	if m.quitting || !m.started {
+	if !m.started {
 		return tea.NewView("")
+	}
+	if m.quitting {
+		return m.compose("") // the conversation stays on screen, the input goes
 	}
 	var bottom string
 	switch {
@@ -41,9 +44,39 @@ func (m *Model) View() tea.View {
 		fixed := lipgloss.Height(strings.Join(parts, "\n")) + 1 // + frame's spacer
 		parts = append([]string{m.liveView(m.height - fixed - 1)}, parts...)
 	}
-	content := strings.Join(parts, "\n")
-	m.meter.note(lipgloss.Height(content) + 1) // + frame's spacer
-	return frame(content)
+	return m.compose("\n" + strings.Join(parts, "\n")) // a spacer under the conversation
+}
+
+// compose stacks the conversation tail on top of below into one frame. Once
+// the frame has reached the bottom of the screen it keeps its bottom there:
+// rows the tail can't fill are padded at the top, so the input stays put
+// when a menu closes.
+func (m *Model) compose(below string) tea.View {
+	var belowLines []string
+	if below != "" {
+		belowLines = strings.Split(below, "\n")
+	}
+	maxH := max(1, m.height-1)
+	h := min(len(m.tail)+len(belowLines), maxH)
+	if m.top+m.lastH >= m.height {
+		h = min(max(h, m.height-m.top), maxH)
+	}
+	show := max(0, h-len(belowLines))
+	vis := m.tail[max(0, len(m.tail)-show):]
+	lines := make([]string, 0, h)
+	for range show - len(vis) {
+		lines = append(lines, "")
+	}
+	lines = append(append(lines, vis...), belowLines...)
+
+	m.lastH = len(lines)
+	if m.top+m.lastH > m.height {
+		m.top = m.height - m.lastH // the terminal scrolls
+	}
+	m.meter.note(m.lastH)
+	v := tea.NewView(strings.Join(lines, "\n"))
+	v.Cursor = parkedCursor()
+	return v
 }
 
 // liveView is what sits above the input while a response streams, in at most

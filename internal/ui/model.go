@@ -39,12 +39,12 @@ type (
 		models   []string
 		err      error
 	}
-	themeTimeoutMsg struct{}
+	startTimeoutMsg struct{}
 )
 
-// How long to wait for the terminal to report its background color; terminals
-// that don't support the query never answer.
-const themeTimeout = 300 * time.Millisecond
+// How long to wait at startup for the terminal to report its background color
+// and the cursor position; terminals that don't support a query never answer.
+const startTimeout = 300 * time.Millisecond
 
 type Model struct {
 	cfg     *config.Config
@@ -57,6 +57,7 @@ type Model struct {
 	width, height int
 	sized         bool
 	themeReady    bool
+	posReady      bool
 	started       bool
 	quitting      bool
 
@@ -91,9 +92,15 @@ type Model struct {
 	usage     llm.Usage
 	showThink bool
 
-	// Scrollback output is printed one batch at a time to keep it in order.
-	outbox   []string
-	printing bool
+	// The frame owns the latest conversation lines (the tail) and hands the
+	// oldest to the scrollback only when they no longer fit. Menus and pickers
+	// borrow rows from the tail and give them back, instead of scrolling the
+	// terminal and leaving a gap under the input when they close.
+	tail     []string
+	top      int      // the frame's first row on screen
+	lastH    int      // height of the last frame
+	outbox   []string // tail lines on their way to the scrollback
+	printing bool     // one print at a time keeps them in order
 	meter    frameMeter
 
 	picker      *picker
@@ -141,7 +148,7 @@ func newInput() textarea.Model {
 	ta.MaxContentHeight = 10000
 	ta.CharLimit = 0
 	ta.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "shift+enter", "ctrl+j"))
-	ta.SetVirtualCursor(true) // the terminal cursor is parked, see frame
+	ta.SetVirtualCursor(true) // the terminal cursor is parked, see parkedCursor
 	ta.Focus()
 	return ta
 }
@@ -190,15 +197,17 @@ func (m *Model) mode() agent.Mode {
 }
 
 func (m *Model) Init() tea.Cmd {
-	if !m.detect {
-		return nil
+	// The cursor is where the frame will start.
+	cmds := []tea.Cmd{tea.RequestCursorPosition, tea.Tick(startTimeout, func(time.Time) tea.Msg { return startTimeoutMsg{} })}
+	if m.detect {
+		cmds = append(cmds, tea.RequestBackgroundColor)
 	}
-	return tea.Batch(tea.RequestBackgroundColor, tea.Tick(themeTimeout, func(time.Time) tea.Msg { return themeTimeoutMsg{} }))
+	return tea.Batch(cmds...)
 }
 
-// maybeStart prints the banner once the size and colors are known.
+// maybeStart prints the banner once the size, colors and position are known.
 func (m *Model) maybeStart() {
-	if m.started || !m.sized || !m.themeReady {
+	if m.started || !m.sized || !m.themeReady || !m.posReady {
 		return
 	}
 	m.started = true
@@ -212,9 +221,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		widthChanged := msg.Width != m.width
 		m.width, m.height, m.sized = msg.Width, msg.Height, true
 		m.input.SetWidth(max(10, m.width-4))
 		m.live, m.liveSrc = "", ""
+		if m.started {
+			if widthChanged && len(m.tail) > 0 {
+				m.tail = strings.Split(fitWidth(strings.Join(m.tail, "\n"), m.width), "\n")
+			}
+			// Terminals move content around on resize; ask where the frame is.
+			cmds = append(cmds, tea.Tick(150*time.Millisecond, func(time.Time) tea.Msg { return tea.RequestCursorPosition() }))
+		}
+		m.maybeStart()
+	case tea.CursorPositionMsg:
+		m.top, m.posReady = msg.Y, true // the cursor is parked on the frame's first row
 		m.maybeStart()
 	case tea.BackgroundColorMsg:
 		if !m.themeReady {
@@ -222,8 +242,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.themeReady = true
 			m.maybeStart()
 		}
-	case themeTimeoutMsg:
+	case startTimeoutMsg:
 		m.themeReady = true
+		if !m.posReady {
+			m.top, m.posReady = max(0, m.height-1), true // most likely under earlier output
+		}
 		m.maybeStart()
 	case printedMsg:
 		m.printing = false
@@ -256,10 +279,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// print queues text for the scrollback. A leading "\n" gives a blank line.
-func (m *Model) print(s string) { m.outbox = append(m.outbox, s) }
+// print adds text to the conversation. A leading "\n" gives a blank line.
+func (m *Model) print(s string) {
+	m.tail = append(m.tail, strings.Split(fitWidth(s, m.width), "\n")...)
+}
 
+// flush hands the tail lines that no longer fit in the frame to the
+// scrollback.
 func (m *Model) flush() tea.Cmd {
+	// With nothing open, the frame (a row short of the screen at most) holds
+	// the tail, a spacer, a one-line input and the status line.
+	n := max(0, len(m.tail)-max(1, m.height-6))
+	// tmux (scroll-on-clear) copies the whole screen into its history when a
+	// redraw erases from the top-left corner, so the frame must not start on
+	// the first row: a conversation line always sits above it.
+	if n == 0 && m.top == 0 && len(m.tail) > 0 && len(m.outbox) == 0 {
+		n = 1
+	}
+	if n > 0 {
+		m.outbox = append(m.outbox, m.tail[:n]...)
+		m.tail = slices.Clone(m.tail[n:])
+	}
 	if m.printing || len(m.outbox) == 0 {
 		return nil
 	}
@@ -268,9 +308,11 @@ func (m *Model) flush() tea.Cmd {
 }
 
 func (m *Model) takeOutbox() tea.Cmd {
-	s := fitWidth(strings.Join(m.outbox, "\n"), m.width)
+	lines := m.outbox
 	m.outbox = nil
-	return printChunks(s, m.height-m.meter.tall)
+	// Printing pushes a frame that isn't at the bottom of the screen down.
+	m.top = min(m.top+len(lines), max(0, m.height-m.lastH))
+	return printChunks(strings.Join(lines, "\n"), m.height-m.meter.tall)
 }
 
 func (m *Model) quit() tea.Cmd {
@@ -336,6 +378,7 @@ func (m *Model) onKey(k tea.KeyPressMsg) tea.Cmd {
 		m.toggleMode()
 		return nil
 	case "ctrl+l":
+		m.top = 0 // the frame is redrawn at the top of the cleared screen
 		return tea.ClearScreen
 	case "tab":
 		if c := m.completions(); len(c) > 0 {
