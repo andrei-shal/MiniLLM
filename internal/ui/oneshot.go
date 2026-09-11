@@ -60,7 +60,7 @@ func OneShot(o Options, prompt string, raw bool) error {
 		}
 		if errTTY {
 			fmt.Fprint(os.Stderr, "\r\x1b[2K")
-			lipgloss.Fprintln(os.Stderr, th.Muted.Render("✻ думал "+fmtDur(time.Since(thinkFrom))))
+			lipgloss.Fprintln(os.Stderr, th.Muted.Render("✻ thought for "+fmtDur(time.Since(thinkFrom))))
 		}
 		thinkFrom = time.Time{}
 	}
@@ -71,7 +71,7 @@ func OneShot(o Options, prompt string, raw bool) error {
 			if thinkFrom.IsZero() {
 				thinkFrom = time.Now()
 				if errTTY {
-					fmt.Fprint(os.Stderr, lipgloss.Sprint(th.Muted.Render("✻ думает…")))
+					fmt.Fprint(os.Stderr, lipgloss.Sprint(th.Muted.Render("✻ thinking…")))
 				}
 			}
 		case agent.TextDelta:
@@ -96,7 +96,7 @@ func OneShot(o Options, prompt string, raw bool) error {
 		case agent.ToolCallStart:
 			fmt.Fprintf(os.Stderr, "⏺ %s(%s)\n", e.Call.Function.Name, summarizeArgs(e.Call.Function.Arguments, 60))
 		case agent.ApprovalRequest:
-			fmt.Fprintln(os.Stderr, "  ⎿ отклонено: подтверждение возможно только в интерактивном режиме")
+			fmt.Fprintln(os.Stderr, "  ⎿ denied: approvals only work in interactive mode")
 			e.Reply <- agent.Deny
 		case agent.Done:
 			runErr = e.Err

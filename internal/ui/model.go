@@ -141,7 +141,7 @@ func newModel(o Options) *Model {
 func newInput() textarea.Model {
 	ta := textarea.New()
 	ta.ShowLineNumbers = false
-	ta.Placeholder = "Спроси что-нибудь…  (/ — команды)"
+	ta.Placeholder = "Ask anything…  (/ for commands)"
 	ta.DynamicHeight = true
 	ta.MinHeight = 1
 	ta.MaxHeight = 10
@@ -329,7 +329,7 @@ func (m *Model) quit() tea.Cmd {
 
 func (m *Model) save() {
 	if err := m.sess.Save(); err != nil {
-		m.print(m.th.Error.Render("✗ не удалось сохранить диалог: " + err.Error()))
+		m.print(m.th.Error.Render("✗ couldn't save the conversation: " + err.Error()))
 	}
 }
 
@@ -362,7 +362,7 @@ func (m *Model) onKey(k tea.KeyPressMsg) tea.Cmd {
 			return m.quit()
 		default:
 			m.exitArmed = true
-			m.notice = "Ctrl+C ещё раз — выход"
+			m.notice = "press Ctrl+C again to quit"
 		}
 		return nil
 	case "ctrl+d":
@@ -438,7 +438,7 @@ func (m *Model) submit() tea.Cmd {
 		name, arg, _ := strings.Cut(text, " ")
 		if c := lookup(name); c != nil {
 			if c.idle && m.busy {
-				m.notice = "дождись конца ответа (esc — стоп)"
+				m.notice = "wait for the answer to finish (esc to stop)"
 				return nil
 			}
 			m.history.add(text)
@@ -447,7 +447,7 @@ func (m *Model) submit() tea.Cmd {
 			return c.run(m, strings.TrimSpace(arg))
 		}
 		if !strings.Contains(name[1:], "/") {
-			m.notice = "нет команды " + name + " — см. /help"
+			m.notice = "unknown command " + name + " — see /help"
 			return nil
 		}
 	}
@@ -554,7 +554,7 @@ func (m *Model) finishTurn(err error) tea.Cmd {
 	m.resetStep()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			m.print(m.th.Muted.Render("  ⎿ остановлено"))
+			m.print(m.th.Muted.Render("  ⎿ stopped"))
 		} else {
 			m.print("\n" + m.th.Error.Render("✗ "+err.Error()))
 		}
@@ -601,7 +601,7 @@ func (m *Model) toggleMode() {
 	mode := m.mode()
 	m.sess.Mode = mode.Name
 	if m.agentMode && mode.Tools.Len() == 0 {
-		m.notice = "режим агента: инструментов пока нет"
+		m.notice = "agent mode: no tools yet"
 	}
 }
 

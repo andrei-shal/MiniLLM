@@ -108,18 +108,18 @@ func (m *Model) liveView(budget int) string {
 }
 
 func (m *Model) spinnerLine() string {
-	label := "жду ответ"
+	label := "waiting"
 	switch {
 	case m.approval != nil:
-		label = "ждёт подтверждения"
+		label = "awaiting approval"
 	case m.gotText:
-		label = "пишет"
+		label = "writing"
 	case m.reasoning.Len() > 0:
-		label = "думает"
+		label = "thinking"
 	}
 	return m.spin.View() + " " + m.th.Accent.Render(label+"…") +
 		m.th.Muted.Render(" "+fmtDur(time.Since(m.turnFrom))) +
-		m.th.Faint.Render("  esc — стоп")
+		m.th.Faint.Render("  esc to stop")
 }
 
 func (m *Model) statusLine() string {
@@ -136,15 +136,15 @@ func (m *Model) statusLine() string {
 		left += "  " + m.th.Faint.Render("ctx "+human(t))
 	}
 	if m.queued != "" {
-		left += "  " + m.th.Warn.Render("⏳ в очереди")
+		left += "  " + m.th.Warn.Render("⏳ queued")
 	}
 
-	right := m.th.Faint.Render("/ команды · ⇧⇥ режим · ⌥⏎ строка")
+	right := m.th.Faint.Render("/ commands · ⇧⇥ mode · ⌥⏎ newline")
 	switch {
 	case m.notice != "":
 		right = m.th.Warn.Render(m.notice)
 	case m.picker != nil:
-		right = m.th.Faint.Render("↑↓ выбрать · ⏎ ок · esc отмена")
+		right = m.th.Faint.Render("↑↓ select · ⏎ ok · esc cancel")
 	case m.approval != nil:
 		right = ""
 	}
@@ -174,16 +174,16 @@ func (m *Model) completionView() string {
 
 func (m *Model) approvalView() string {
 	a := m.approval
-	body := m.th.Warn.Render("Разрешить?  ") + m.toolCallLine(a.Call) + "\n" +
-		m.th.Accent.Render("[y]") + " да   " +
-		m.th.Accent.Render("[a]") + " всегда для " + a.Call.Function.Name + "   " +
-		m.th.Accent.Render("[n]") + " нет"
+	body := m.th.Warn.Render("Allow?  ") + m.toolCallLine(a.Call) + "\n" +
+		m.th.Accent.Render("[y]") + " yes   " +
+		m.th.Accent.Render("[a]") + " always for " + a.Call.Function.Name + "   " +
+		m.th.Accent.Render("[n]") + " no"
 	return m.th.Box.BorderForeground(m.th.warn).Width(m.width).Render(body)
 }
 
 func (m *Model) banner() string {
 	return m.th.Accent.Bold(true).Render("◆ MiniLLM") + m.th.Faint.Render(" "+m.version) +
-		"\n" + m.th.Muted.Render("  /help — команды · ⇧⇥ — chat/agent · esc — стоп")
+		"\n" + m.th.Muted.Render("  /help for commands · ⇧⇥ chat/agent · esc to stop")
 }
 
 func (m *Model) userBlock(text string) string {
@@ -199,9 +199,9 @@ func (m *Model) userBlock(text string) string {
 }
 
 func (m *Model) thinkingBlock(text string, d time.Duration) string {
-	head := "✻ думал"
+	head := "✻ thought"
 	if d > 0 {
-		head += " " + fmtDur(d)
+		head += " for " + fmtDur(d)
 	}
 	if !m.showThink {
 		return m.th.Muted.Render(head)
@@ -218,11 +218,11 @@ func (m *Model) toolResultLine(r agent.ToolResult) string {
 	lines := strings.Split(strings.TrimRight(r.Output, "\n"), "\n")
 	first := truncate(lines[0], max(20, m.width-20))
 	if first == "" {
-		first = "(пусто)"
+		first = "(empty)"
 	}
 	s := "  ⎿  " + first
 	if len(lines) > 1 {
-		s += fmt.Sprintf("  (+%d строк)", len(lines)-1)
+		s += fmt.Sprintf("  (+%d lines)", len(lines)-1)
 	}
 	if r.Failed {
 		return m.th.Error.Render(s)
@@ -248,7 +248,7 @@ func (m *Model) transcript(msgs []llm.Message) string {
 	const maxShown = 30
 	var parts []string
 	if len(msgs) > maxShown {
-		parts = append(parts, "\n"+m.th.Faint.Render(fmt.Sprintf("  … ещё %d сообщений выше", len(msgs)-maxShown)))
+		parts = append(parts, "\n"+m.th.Faint.Render(fmt.Sprintf("  … %d earlier messages", len(msgs)-maxShown)))
 		msgs = msgs[len(msgs)-maxShown:]
 	}
 	for _, msg := range msgs {

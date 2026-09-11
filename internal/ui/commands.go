@@ -24,17 +24,17 @@ var commands []command
 // Filled in init: /help lists the commands, which would be an initialization cycle.
 func init() {
 	commands = []command{
-		{"/model", "выбрать модель (или /model имя)", true, (*Model).cmdModel},
-		{"/provider", "выбрать провайдера", true, (*Model).cmdProvider},
-		{"/new", "новый диалог", true, (*Model).cmdNew},
-		{"/sessions", "открыть прошлый диалог", true, (*Model).cmdSessions},
-		{"/retry", "перегенерировать последний ответ", true, (*Model).cmdRetry},
-		{"/system", "системный промпт: /system текст, /system - сброс", true, (*Model).cmdSystem},
-		{"/copy", "скопировать последний ответ", false, (*Model).cmdCopy},
-		{"/think", "показывать размышления модели", false, (*Model).cmdThink},
-		{"/agent", "переключить chat ↔ agent", true, (*Model).cmdAgent},
-		{"/help", "справка", false, (*Model).cmdHelp},
-		{"/exit", "выход", false, (*Model).cmdExit},
+		{"/model", "pick a model (or /model name)", true, (*Model).cmdModel},
+		{"/provider", "pick a provider", true, (*Model).cmdProvider},
+		{"/new", "new conversation", true, (*Model).cmdNew},
+		{"/sessions", "open an earlier conversation", true, (*Model).cmdSessions},
+		{"/retry", "regenerate the last answer", true, (*Model).cmdRetry},
+		{"/system", "system prompt: /system text, /system - to reset", true, (*Model).cmdSystem},
+		{"/copy", "copy the last answer", false, (*Model).cmdCopy},
+		{"/think", "show model reasoning", false, (*Model).cmdThink},
+		{"/agent", "switch chat ↔ agent", true, (*Model).cmdAgent},
+		{"/help", "help", false, (*Model).cmdHelp},
+		{"/exit", "quit", false, (*Model).cmdExit},
 	}
 }
 
@@ -57,7 +57,7 @@ func (m *Model) cmdModel(arg string) tea.Cmd {
 }
 
 func (m *Model) openModelPicker(only string) tea.Cmd {
-	p := &picker{kind: "model", only: only, title: "Модель"}
+	p := &picker{kind: "model", only: only, title: "Model"}
 	if only != "" {
 		p.title += " · " + only
 	}
@@ -137,12 +137,12 @@ func (m *Model) switchTo(ref string) tea.Cmd {
 		return nil
 	}
 	m.setModel(p, model)
-	m.note("модель: " + m.th.Accent.Render(m.ref()))
+	m.note("model: " + m.th.Accent.Render(m.ref()))
 	return nil
 }
 
 func (m *Model) cmdProvider(string) tea.Cmd {
-	p := &picker{kind: "provider", title: "Провайдер"}
+	p := &picker{kind: "provider", title: "Provider"}
 	for _, prov := range m.cfg.Providers {
 		it := pickItem{Label: prov.Name, Hint: prov.BaseURL, Value: prov.Name}
 		if prov.Name == m.provider.Name {
@@ -163,7 +163,7 @@ func (m *Model) cmdNew(string) tea.Cmd {
 	m.setModel(m.provider, m.model)
 	m.sess.Mode = m.mode().Name
 	m.usage = llm.Usage{}
-	m.print("\n" + m.th.Faint.Render("── новый диалог ──"))
+	m.print("\n" + m.th.Faint.Render("── new conversation ──"))
 	return nil
 }
 
@@ -174,10 +174,10 @@ func (m *Model) cmdSessions(string) tea.Cmd {
 		return nil
 	}
 	if len(metas) == 0 {
-		m.notice = "сохранённых диалогов пока нет"
+		m.notice = "no saved conversations yet"
 		return nil
 	}
-	p := &picker{kind: "session", title: "Диалоги"}
+	p := &picker{kind: "session", title: "Conversations"}
 	for _, s := range metas {
 		p.items = append(p.items, pickItem{Label: s.Title, Hint: relTime(s.Updated) + " · " + s.Model, Value: s.ID})
 	}
@@ -212,11 +212,11 @@ func (m *Model) cmdRetry(string) tea.Cmd {
 		i--
 	}
 	if i < 0 {
-		m.notice = "нечего повторять"
+		m.notice = "nothing to retry"
 		return nil
 	}
 	m.sess.Messages = m.sess.Messages[:i+1]
-	m.print("\n" + m.th.Muted.Render("↻ повтор"))
+	m.print("\n" + m.th.Muted.Render("↻ retry"))
 	return m.startTurn()
 }
 
@@ -225,15 +225,15 @@ func (m *Model) cmdSystem(arg string) tea.Cmd {
 	case "":
 		sys := m.sess.System
 		if sys == "" {
-			sys = "не задан"
+			sys = "not set"
 		}
-		m.note("системный промпт: " + sys)
+		m.note("system prompt: " + sys)
 	case "-":
 		m.sess.System = m.cfg.Chat.System
-		m.note("системный промпт сброшен")
+		m.note("system prompt reset")
 	default:
 		m.sess.System = arg
-		m.note("системный промпт обновлён")
+		m.note("system prompt updated")
 	}
 	return nil
 }
@@ -241,21 +241,21 @@ func (m *Model) cmdSystem(arg string) tea.Cmd {
 func (m *Model) cmdCopy(string) tea.Cmd {
 	for i := len(m.sess.Messages) - 1; i >= 0; i-- {
 		if msg := m.sess.Messages[i]; msg.Role == llm.RoleAssistant && msg.Content != "" {
-			m.notice = "скопировано в буфер обмена"
+			m.notice = "copied to clipboard"
 			return tea.SetClipboard(msg.Content)
 		}
 	}
-	m.notice = "ещё нет ответа"
+	m.notice = "no answer yet"
 	return nil
 }
 
 func (m *Model) cmdThink(string) tea.Cmd {
 	m.showThink = !m.showThink
 	if !m.showThink {
-		m.notice = "размышления скрыты"
+		m.notice = "reasoning hidden"
 		return nil
 	}
-	m.notice = "размышления видны"
+	m.notice = "reasoning shown"
 	for i := len(m.sess.Messages) - 1; i >= 0; i-- {
 		if msg := m.sess.Messages[i]; msg.Role == llm.RoleAssistant {
 			if msg.Reasoning != "" {
@@ -270,31 +270,31 @@ func (m *Model) cmdThink(string) tea.Cmd {
 func (m *Model) cmdAgent(string) tea.Cmd {
 	m.toggleMode()
 	if m.notice == "" {
-		m.notice = "режим: " + m.mode().Name
+		m.notice = "mode: " + m.mode().Name
 	}
 	return nil
 }
 
 func (m *Model) cmdHelp(string) tea.Cmd {
 	var b strings.Builder
-	b.WriteString(m.th.Bold.Render("Команды") + "\n")
+	b.WriteString(m.th.Bold.Render("Commands") + "\n")
 	for _, c := range commands {
 		b.WriteString("  " + m.th.Accent.Render(padRight(c.name, 11)) + m.th.Muted.Render(c.desc) + "\n")
 	}
-	b.WriteString("\n" + m.th.Bold.Render("Клавиши") + "\n")
+	b.WriteString("\n" + m.th.Bold.Render("Keys") + "\n")
 	for _, k := range [][2]string{
-		{"⏎", "отправить"},
-		{"⌥⏎ ⇧⏎ ^J \\⏎", "новая строка"},
-		{"esc, ^C", "остановить ответ"},
-		{"↑ ↓", "история ввода"},
-		{"tab", "дополнить команду"},
-		{"⇧⇥", "переключить chat ↔ agent"},
-		{"^L", "очистить экран"},
-		{"^C ^C, ^D", "выход"},
+		{"⏎", "send"},
+		{"⌥⏎ ⇧⏎ ^J \\⏎", "new line"},
+		{"esc, ^C", "stop the answer"},
+		{"↑ ↓", "input history"},
+		{"tab", "complete a command"},
+		{"⇧⇥", "switch chat ↔ agent"},
+		{"^L", "clear the screen"},
+		{"^C ^C, ^D", "quit"},
 	} {
 		b.WriteString("  " + m.th.Accent.Render(padRight(k[0], 11)) + m.th.Muted.Render(k[1]) + "\n")
 	}
-	b.WriteString("\n" + m.th.Muted.Render("Конфиг: "+config.Tilde(config.Path())))
+	b.WriteString("\n" + m.th.Muted.Render("Config: "+config.Tilde(config.Path())))
 	m.print("\n" + b.String())
 	return nil
 }

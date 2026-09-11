@@ -33,7 +33,7 @@ func Setup(dark bool) (*config.Config, error) {
 		fmt.Print(lipgloss.Sprint(prompt + " "))
 		line, err := in.ReadString('\n')
 		if err != nil && line == "" {
-			return "", errors.New("настройка прервана")
+			return "", errors.New("setup interrupted")
 		}
 		if line = strings.TrimSpace(line); line == "" {
 			line = def
@@ -42,8 +42,8 @@ func Setup(dark bool) (*config.Config, error) {
 	}
 
 	say("")
-	say(th.Accent.Bold(true).Render("◆ MiniLLM") + th.Muted.Render(" · настройка провайдера"))
-	say(th.Muted.Render("  Подойдёт любой OpenAI-совместимый API: llama.cpp, Ollama, vLLM, LM Studio, OpenRouter, LiteLLM…"))
+	say(th.Accent.Bold(true).Render("◆ MiniLLM") + th.Muted.Render(" · provider setup"))
+	say(th.Muted.Render("  Any OpenAI-compatible API works: llama.cpp, Ollama, vLLM, LM Studio, OpenRouter, LiteLLM…"))
 	say("")
 
 	for {
@@ -53,7 +53,7 @@ func Setup(dark bool) (*config.Config, error) {
 		}
 		baseURL := normalizeURL(rawURL)
 
-		fmt.Print(lipgloss.Sprint(th.Accent.Render("? ") + th.Bold.Render("API ключ") + th.Faint.Render(" (Enter — без ключа) ")))
+		fmt.Print(lipgloss.Sprint(th.Accent.Render("? ") + th.Bold.Render("API key") + th.Faint.Render(" (Enter for none) ")))
 		keyBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Println()
 		if err != nil {
@@ -66,47 +66,47 @@ func Setup(dark bool) (*config.Config, error) {
 			name = fmt.Sprintf("%s-%d", guessName(baseURL), i)
 		}
 		for {
-			if name, err = ask("Имя провайдера", name); err != nil {
+			if name, err = ask("Provider name", name); err != nil {
 				return nil, err
 			}
 			if strings.Contains(name, "/") {
-				say(th.Error.Render("  ✗ без «/», пожалуйста"))
+				say(th.Error.Render("  ✗ no \"/\" please"))
 			} else if existing != nil && existing.Provider(name) != nil {
-				say(th.Error.Render("  ✗ такой провайдер уже есть"))
+				say(th.Error.Render("  ✗ that provider already exists"))
 			} else {
 				break
 			}
 		}
 
-		say(th.Muted.Render("  запрашиваю " + baseURL + "/models…"))
+		say(th.Muted.Render("  fetching " + baseURL + "/models…"))
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		models, err := llm.New(baseURL, key, nil).ListModels(ctx)
 		cancel()
 
 		var model string
 		if err == nil && len(models) > 0 {
-			say(th.OK.Render("  ✓ ") + fmt.Sprintf("моделей: %d", len(models)))
-			if model, err = Pick("Модель", models, dark, true); err != nil {
+			say(th.OK.Render("  ✓ ") + fmt.Sprintf("%d models", len(models)))
+			if model, err = Pick("Model", models, dark, true); err != nil {
 				return nil, err
 			}
 			if model == "" {
-				return nil, errors.New("настройка отменена")
+				return nil, errors.New("setup cancelled")
 			}
 		} else {
 			if err != nil {
 				say(th.Error.Render("  ✗ " + err.Error()))
 			} else {
-				say(th.Warn.Render("  сервер вернул пустой список моделей"))
+				say(th.Warn.Render("  the server returned no models"))
 			}
-			choice, err := ask("Ввести адрес заново (r) или указать модель вручную (m)?", "m")
+			choice, err := ask("Re-enter the URL (r) or type a model name (m)?", "m")
 			if err != nil {
 				return nil, err
 			}
 			if strings.HasPrefix(strings.ToLower(choice), "r") {
 				continue
 			}
-			if model, err = ask("Модель", ""); err != nil || model == "" {
-				return nil, errors.New("модель не указана")
+			if model, err = ask("Model", ""); err != nil || model == "" {
+				return nil, errors.New("no model given")
 			}
 		}
 
@@ -114,9 +114,9 @@ func Setup(dark bool) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		say(th.OK.Render("✓ ") + name + "/" + model + th.Muted.Render(" сохранено в "+config.Tilde(config.Path())))
+		say(th.OK.Render("✓ ") + name + "/" + model + th.Muted.Render(" saved to "+config.Tilde(config.Path())))
 		if key != "" {
-			say(th.Faint.Render("  Ключ можно убрать из файла в переменную окружения: api_key_env = \"MY_KEY\""))
+			say(th.Faint.Render("  To keep the key out of the file, use an environment variable: api_key_env = \"MY_KEY\""))
 		}
 		say("")
 		return cfg, nil

@@ -136,5 +136,5 @@ func title(msgs []llm.Message) string {
 		}
 		return string(t)
 	}
-	return "без названия"
+	return "untitled"
 }

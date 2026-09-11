@@ -129,14 +129,14 @@ func relTime(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Minute:
-		return "только что"
+		return "just now"
 	case d < time.Hour:
-		return fmt.Sprintf("%d мин назад", int(d.Minutes()))
+		return fmt.Sprintf("%d min ago", int(d.Minutes()))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("%d ч назад", int(d.Hours()))
+		return fmt.Sprintf("%d h ago", int(d.Hours()))
 	case d < 7*24*time.Hour:
-		return fmt.Sprintf("%d дн назад", int(d.Hours()/24))
+		return fmt.Sprintf("%d d ago", int(d.Hours()/24))
 	default:
-		return t.Format("02.01.2006")
+		return t.Format("Jan 2, 2006")
 	}
 }

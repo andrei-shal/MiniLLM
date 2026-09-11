@@ -20,14 +20,14 @@ import (
 
 var version = "dev"
 
-const usage = `mllm — минимальный клиент для OpenAI-совместимых LLM
+const usage = `mllm — a minimal client for OpenAI-compatible LLMs
 
-  mllm                        интерактивный чат
-  mllm "вопрос"               один ответ и выход
-  cat file | mllm "что тут?"  stdin добавляется к вопросу
-  mllm -c                     продолжить последний диалог
+  mllm                            interactive chat
+  mllm "question"                 one answer, then exit
+  cat file | mllm "what's this?"  stdin is appended to the question
+  mllm -c                         continue the last conversation
 
-Флаги (пишутся до текста вопроса):
+Flags (they go before the question):
 `
 
 type flags struct {
@@ -37,17 +37,17 @@ type flags struct {
 
 func main() {
 	var f flags
-	flag.StringVar(&f.model, "m", "", "модель: `провайдер/модель` или просто имя модели")
-	flag.BoolVar(&f.cont, "c", false, "продолжить последний диалог")
-	flag.BoolVar(&f.agent, "agent", false, "режим агента")
-	flag.StringVar(&f.system, "s", "", "системный `промпт`")
-	flag.BoolVar(&f.raw, "raw", false, "не рендерить markdown в ответе")
-	flag.BoolVar(&f.init, "setup", false, "добавить провайдера (мастер настройки)")
-	showVersion := flag.Bool("version", false, "показать версию")
+	flag.StringVar(&f.model, "m", "", "model: `provider/model` or just a model name")
+	flag.BoolVar(&f.cont, "c", false, "continue the last conversation")
+	flag.BoolVar(&f.agent, "agent", false, "agent mode")
+	flag.StringVar(&f.system, "s", "", "system `prompt`")
+	flag.BoolVar(&f.raw, "raw", false, "don't render markdown in the answer")
+	flag.BoolVar(&f.init, "setup", false, "add a provider (setup wizard)")
+	showVersion := flag.Bool("version", false, "print the version")
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nКонфиг: %s\n", config.Tilde(config.Path()))
+		fmt.Fprintf(os.Stderr, "\nConfig: %s\n", config.Tilde(config.Path()))
 	}
 	flag.Parse()
 	if *showVersion {
@@ -83,7 +83,7 @@ func run(f flags, args []string) error {
 	}
 	interactive := prompt == ""
 	if interactive && !stdinTTY {
-		return errors.New("нет вопроса: передай его аргументом или через stdin")
+		return errors.New("no question: pass it as an argument or via stdin")
 	}
 
 	// The interactive UI asks the terminal for its background asynchronously;
@@ -93,7 +93,7 @@ func run(f flags, args []string) error {
 	cfg, err := config.Load()
 	if errors.Is(err, config.ErrNotFound) || (err == nil && f.init) {
 		if !stdinTTY || !stdoutTTY {
-			return fmt.Errorf("нет конфига %s — запусти mllm в терминале, чтобы настроить", config.Tilde(config.Path()))
+			return fmt.Errorf("no config at %s — run mllm in a terminal to set it up", config.Tilde(config.Path()))
 		}
 		cfg, err = ui.Setup(dark)
 	}
@@ -111,7 +111,7 @@ func run(f flags, args []string) error {
 	if f.cont {
 		sess, err = session.Latest()
 		if errors.Is(err, os.ErrNotExist) {
-			fmt.Fprintln(os.Stderr, "прошлых диалогов нет — начинаю новый")
+			fmt.Fprintln(os.Stderr, "no earlier conversations — starting a new one")
 		} else if err != nil {
 			return err
 		}

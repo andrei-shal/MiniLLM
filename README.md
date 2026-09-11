@@ -4,11 +4,9 @@ A minimal terminal chat client for any OpenAI-compatible LLM: llama.cpp, Ollama,
 
 It is a single static `mllm` binary with no runtime or dependencies, written in Go on top of [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Glamour](https://github.com/charmbracelet/glamour).
 
-> The interface is currently in Russian.
-
 ```
 ◆ MiniLLM
-  /help — команды · ⇧⇥ — chat/agent · esc — стоп
+  /help for commands · ⇧⇥ chat/agent · esc to stop
 
 ❯ how do I reverse a slice in Go?
 
@@ -18,16 +16,16 @@ It is a single static `mllm` binary with no runtime or dependencies, written in 
     slices.Reverse(s) // [3 2 1]
 
 ╭──────────────────────────────────────────────────────────────╮
-│ ❯ Спроси что-нибудь…  (/ — команды)                          │
+│ ❯ Ask anything…  (/ for commands)                            │
 ╰──────────────────────────────────────────────────────────────╯
- ● local/qwen3-32b  chat  ctx 1.2k      / команды · ⇧⇥ режим
+ ● local/qwen3-32b  chat  ctx 1.2k    / commands · ⇧⇥ mode
 ```
 
 ## Features
 
 - **Inline UI, like Claude Code.** Answers go into the terminal's normal scrollback, so scrolling, selecting and copying work as usual. Only the input box and a status line (model, mode, context used) stay at the bottom.
 - **Streaming markdown.** Headings, lists, tables and syntax-highlighted code. Finished blocks are printed right away; the block being written is shown live.
-- **Model reasoning** (`reasoning_content`, `reasoning`, or `<think>…</think>`) is folded into a single `✻ думал 3.2s` ("thought for 3.2s") line; `/think` expands it.
+- **Model reasoning** (`reasoning_content`, `reasoning`, or `<think>…</think>`) is folded into a single `✻ thought for 3.2s` line; `/think` expands it.
 - **Any number of custom providers** in one config. Switch models on the fly, even mid-conversation.
 - **Saved conversations.** `mllm -c` continues the last one; `/sessions` opens any earlier one.
 - **One-shot and pipes:** `mllm "question"` or `cat file | mllm "explain"`. When stdout isn't a terminal, the answer is printed as plain text.

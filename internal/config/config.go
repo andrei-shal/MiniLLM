@@ -47,7 +47,7 @@ type Config struct {
 	Chat      Chat       `toml:"chat"`
 }
 
-var ErrNotFound = errors.New("конфиг не найден")
+var ErrNotFound = errors.New("config not found")
 
 func home() string {
 	h, _ := os.UserHomeDir()
@@ -108,23 +108,23 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("%s: %w", Tilde(Path()), err)
 	}
 	if len(c.Providers) == 0 {
-		return nil, fmt.Errorf("%s: нет ни одного [[provider]]", Tilde(Path()))
+		return nil, fmt.Errorf("%s: no [[provider]] defined", Tilde(Path()))
 	}
 	switch c.Theme {
 	case "", "auto", "dark", "light":
 	default:
-		return nil, fmt.Errorf("%s: theme = %q, а можно auto, dark или light", Tilde(Path()), c.Theme)
+		return nil, fmt.Errorf("%s: theme = %q, expected auto, dark or light", Tilde(Path()), c.Theme)
 	}
 	seen := map[string]bool{}
 	for i, p := range c.Providers {
 		if p.Name == "" || strings.Contains(p.Name, "/") {
-			return nil, fmt.Errorf("%s: provider #%d: нужно имя без «/»", Tilde(Path()), i+1)
+			return nil, fmt.Errorf("%s: provider #%d: needs a name without \"/\"", Tilde(Path()), i+1)
 		}
 		if p.BaseURL == "" {
-			return nil, fmt.Errorf("%s: provider %q: не задан base_url", Tilde(Path()), p.Name)
+			return nil, fmt.Errorf("%s: provider %q: base_url is not set", Tilde(Path()), p.Name)
 		}
 		if seen[p.Name] {
-			return nil, fmt.Errorf("%s: provider %q указан дважды", Tilde(Path()), p.Name)
+			return nil, fmt.Errorf("%s: provider %q is defined twice", Tilde(Path()), p.Name)
 		}
 		seen[p.Name] = true
 	}
@@ -149,7 +149,7 @@ func (c *Config) Resolve(ref string) (*Provider, string, error) {
 	if ref == "" {
 		p := &c.Providers[0]
 		if len(p.Models) == 0 {
-			return nil, "", errors.New("модель не выбрана: задай default в конфиге или флаг -m")
+			return nil, "", errors.New("no model selected: set default in the config or pass -m")
 		}
 		return p, p.Models[0], nil
 	}
@@ -160,7 +160,7 @@ func (c *Config) Resolve(ref string) (*Provider, string, error) {
 		if len(p.Models) > 0 {
 			return p, p.Models[0], nil
 		}
-		return nil, "", fmt.Errorf("у провайдера %q не задана модель: используй -m %s/<модель>", p.Name, p.Name)
+		return nil, "", fmt.Errorf("provider %q has no model: use -m %s/<model>", p.Name, p.Name)
 	}
 	if name, model, ok := strings.Cut(ref, "/"); ok && model != "" {
 		if p := c.Provider(name); p != nil {
@@ -201,11 +201,11 @@ func AddProvider(p Provider, model string) (*Config, error) {
 	}
 	block := fmt.Sprintf("\n[[provider]]\nname = %s\nbase_url = %s\n", quote(p.Name), quote(p.BaseURL))
 	if p.APIKey != "" {
-		block += fmt.Sprintf("api_key = %s          # или api_key_env = \"MY_KEY\"\n", quote(p.APIKey))
+		block += fmt.Sprintf("api_key = %s          # or api_key_env = \"MY_KEY\"\n", quote(p.APIKey))
 	} else {
-		block += "# api_key = \"...\"              # или api_key_env = \"MY_KEY\"\n"
+		block += "# api_key = \"...\"              # or api_key_env = \"MY_KEY\"\n"
 	}
-	block += "# headers = { \"X-Title\" = \"minillm\" }\n# models = [\"model-a\", \"model-b\"]  # если сервер не отдаёт /models\n"
+	block += "# headers = { \"X-Title\" = \"minillm\" }\n# models = [\"model-a\", \"model-b\"]  # if the server doesn't serve /models\n"
 	text = strings.TrimRight(text, "\n") + "\n" + block
 
 	if err := os.MkdirAll(filepath.Dir(Path()), 0o700); err != nil {
@@ -221,12 +221,12 @@ func AddProvider(p Provider, model string) (*Config, error) {
 	return Load()
 }
 
-const template = `# MiniLLM. Модель по умолчанию: "провайдер/модель".
+const template = `# MiniLLM. Default model: "provider/model".
 default = ""
 # theme = "auto"   # auto | dark | light
 
 [chat]
-# system = "Ты полезный ассистент."
+# system = "You are a helpful assistant."
 # temperature = 0.7
 # max_tokens = 4096
 `

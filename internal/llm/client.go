@@ -169,7 +169,7 @@ func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("не удалось разобрать список моделей: %w", err)
+		return nil, fmt.Errorf("can't parse the model list: %w", err)
 	}
 	ids := make([]string, 0, len(body.Data))
 	for _, m := range body.Data {
@@ -205,7 +205,7 @@ func errorMessage(raw []byte) string {
 		s = s[:500] + "…"
 	}
 	if s == "" {
-		s = "пустой ответ"
+		s = "empty response"
 	}
 	return s
 }
@@ -322,7 +322,7 @@ func readStream(r io.Reader, onDelta func(Delta)) (Result, error) {
 func (a *assembler) chunk(data string) error {
 	var ch streamChunk
 	if err := json.Unmarshal([]byte(data), &ch); err != nil {
-		return fmt.Errorf("битый чанк от сервера: %w", err)
+		return fmt.Errorf("malformed chunk from the server: %w", err)
 	}
 	if msg := rawErrorMessage(ch.Error); msg != "" {
 		return &APIError{Message: msg}
@@ -381,7 +381,7 @@ func readCompletion(r io.Reader, onDelta func(Delta)) (Result, error) {
 		Error json.RawMessage `json:"error"`
 	}
 	if err := json.NewDecoder(r).Decode(&body); err != nil {
-		return a.result(), fmt.Errorf("не удалось разобрать ответ: %w", err)
+		return a.result(), fmt.Errorf("can't parse the response: %w", err)
 	}
 	if msg := rawErrorMessage(body.Error); msg != "" {
 		return a.result(), &APIError{Message: msg}

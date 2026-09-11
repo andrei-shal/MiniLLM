@@ -39,7 +39,7 @@ func (p *picker) addModels(provider string, models []string, current string) {
 		ref := provider + "/" + id
 		it := pickItem{Label: ref, Value: ref}
 		if ref == current {
-			it.Hint = "текущая"
+			it.Hint = "current"
 			if p.filter == "" {
 				p.sel = len(p.items)
 			}
@@ -152,14 +152,14 @@ func (p *picker) view(th theme, width, height int) string {
 	switch {
 	case len(vis) == 0 && p.loading > 0:
 	case len(vis) == 0 && p.onCustom != nil && strings.TrimSpace(p.filter) != "":
-		lines = append(lines, th.Muted.Render("  ⏎ использовать «"+strings.TrimSpace(p.filter)+"»"))
+		lines = append(lines, th.Muted.Render("  ⏎ use “"+strings.TrimSpace(p.filter)+"”"))
 	case len(vis) == 0:
-		lines = append(lines, th.Muted.Render("  ничего не найдено"))
+		lines = append(lines, th.Muted.Render("  no matches"))
 	case len(vis) > rows:
-		lines = append(lines, th.Faint.Render("  … всего "+strconv.Itoa(len(vis))))
+		lines = append(lines, th.Faint.Render("  … "+strconv.Itoa(len(vis))+" total"))
 	}
 	if p.loading > 0 {
-		lines = append(lines, th.Muted.Render("  загружаю список моделей…"))
+		lines = append(lines, th.Muted.Render("  loading models…"))
 	}
 	for _, e := range p.errs {
 		lines = append(lines, ansi.Truncate(th.Error.Render("  ✗ "+e), inner, "…"))

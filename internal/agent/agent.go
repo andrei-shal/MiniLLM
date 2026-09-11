@@ -188,7 +188,7 @@ func (l *Loop) run(ctx context.Context, history []llm.Message, mode Mode, ch cha
 			return err
 		}
 	}
-	return fmt.Errorf("агент превысил лимит в %d шагов", maxSteps)
+	return fmt.Errorf("the agent hit its limit of %d steps", maxSteps)
 }
 
 const cancelled = "Cancelled by the user."
